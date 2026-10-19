@@ -1,0 +1,31 @@
+# Entorno virtual de Python y cachés
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Credenciales y configuración local (NUNCA subir)
+.env
+.env.*
+!.env.example
+
+# Registros y temporales
+*.log
+
+# Sistema operativo / editores
+.DS_Store
+__MACOSX/
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Temporales de Microsoft Office (p. ej. ~$requerimientos.docx)
+~$*
+
+# Archivos generados
+*.zip
+
+
+*.docx

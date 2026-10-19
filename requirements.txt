@@ -1,0 +1,7 @@
+# Dependencias del sistema (instalar con: pip install -r requirements.txt)
+Flask>=3.0,<4
+PyMySQL>=1.1,<2
+cryptography>=42        # necesaria para que PyMySQL se conecte a MySQL 8 (caching_sha2_password)
+bcrypt>=4.1,<6
+python-dotenv>=1.0,<2
+waitress>=3.0,<4        # servidor de producción puro-Python (funciona en Windows)

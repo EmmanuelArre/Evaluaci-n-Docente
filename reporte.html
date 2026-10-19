@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encuesta – Reporte</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="encabezado">
+  <h1>UNIVERSIDAD DEL NORTE DE GUANAJUATO</h1>
+  <nav>
+    <a href="index.html">← Encuesta</a>
+    <a href="admin.html">Panel</a>
+    <a class="activo" href="reporte.html">Reportes</a>
+    <button type="button" class="secundario" id="btnSalir">Cerrar sesión</button>
+    <span id="quien" class="quien"></span>
+    <span id="fecha"></span>
+  </nav>
+</header>
+
+<main>
+  <!-- ===== Selección del reporte (combobox cargados desde MySQL) ===== -->
+  <section class="tarjeta no-imprimir">
+    <h2>Reportes</h2>
+    <div class="pestanas" role="tablist">
+      <button type="button" role="tab" class="pestana activa" data-tipo="grupo">Por grupo</button>
+      <button type="button" role="tab" class="pestana" data-tipo="profesor">Por profesor</button>
+      <button type="button" role="tab" class="pestana" data-tipo="grupo-profesor">Por grupo y profesor</button>
+      <button type="button" role="tab" class="pestana" data-tipo="general-grupo">General por grupo</button>
+    </div>
+    <p class="ayuda" id="ayudaTipo"></p>
+    <form id="formReporte" class="fila-admin" novalidate>
+      <div class="campo" data-tipos="grupo grupo-profesor general-grupo profesor">
+        <label for="f-grupo" id="l-grupo">Grupo</label>
+        <select id="f-grupo"></select>
+        <small class="error" id="e-f-grupo"></small>
+      </div>
+      <div class="campo" data-tipos="profesor grupo-profesor">
+        <label for="f-profesor">Profesor</label>
+        <select id="f-profesor"></select>
+        <small class="error" id="e-f-profesor"></small>
+      </div>
+      <div class="campo" data-tipos="profesor grupo-profesor">
+        <label for="f-materia" id="l-materia">Materia (opcional)</label>
+        <select id="f-materia" disabled></select>
+        <small class="error" id="e-f-materia"></small>
+      </div>
+      <div class="botones"><button type="submit" id="btnGenerar">Generar reporte</button></div>
+    </form>
+    <small class="error" id="e-reporte" role="alert"></small>
+  </section>
+
+  <p class="vacio-msg" id="msgVacio" role="status" hidden></p>
+
+  <div id="resultado" hidden>
+    <section class="tarjeta">
+      <h2 id="tituloReporte">Resultados de la encuesta</h2>
+      <div class="resumen">
+        <div><span>Grupo</span><b id="r-grupo">–</b></div>
+        <div><span>Profesor</span><b id="r-profesor">–</b></div>
+        <div><span>Materia</span><b id="r-materia">–</b></div>
+        <div><span>Alumnos</span><b id="r-total">0</b></div>
+        <div><span>Respuestas</span><b id="r-respuestas">0</b></div>
+        <div class="general"><span>Promedio general</span><b id="r-general">–</b></div>
+      </div>
+      <h3>Promedio por pregunta</h3>
+      <div class="eje">
+        <div class="escala"><span>10</span><span>9</span><span>8</span><span>7</span><span>6</span><span>5</span></div>
+        <div id="grafica" class="grafica" aria-label="Promedio por pregunta"></div>
+      </div>
+      <p class="centro">Preguntas</p>
+    </section>
+
+    <section class="tarjeta" id="cajaPM">
+      <h2 id="tituloPM">Profesores y materias evaluados</h2>
+      <div class="tabla-wrap"><table id="tablaPM" class="tabla-admin"><thead></thead><tbody></tbody><tfoot></tfoot></table></div>
+    </section>
+
+    <section class="tarjeta dos-col">
+      <div>
+        <h2>Promedio por profesor</h2>
+        <div class="tabla-wrap"><table id="tablaProf" class="tabla-admin"><thead><tr><th>Profesor</th><th>Alumnos</th><th>Promedio</th></tr></thead><tbody></tbody></table></div>
+      </div>
+      <div>
+        <h2>Promedio por materia</h2>
+        <div class="tabla-wrap"><table id="tablaMat" class="tabla-admin"><thead><tr><th>Materia</th><th>Alumnos</th><th>Promedio</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="tarjeta">
+      <h2>Detalle por alumno</h2>
+      <small class="info" id="avisoTrunc" hidden></small>
+      <div class="tabla-wrap">
+        <table id="tabla"><thead></thead><tbody></tbody><tfoot></tfoot></table>
+      </div>
+    </section>
+
+    <section class="tarjeta">
+      <h2>No. y pregunta</h2>
+      <ol id="leyenda" class="leyenda"></ol>
+    </section>
+
+    <div class="botones no-imprimir">
+      <a class="boton" href="admin.html">← Volver al panel</a>
+      <button type="button" class="secundario" id="btnImprimir">Imprimir</button>
+    </div>
+  </div>
+</main>
+<script src="js/config.js"></script>
+<script src="js/datos.js"></script>
+<script src="js/reporte.js"></script>
+</body>
+</html>

@@ -1,4 +1,10 @@
-"""Reportes (solo administrador). Todos los promedios se calculan en SQL a partir de `respuestas`;
+"""Reportes (solo administrador). Distinguen cuatro conteos que no deben mezclarse:
+  · encuestas completas  = envíos del formulario (COUNT DISTINCT encuesta_id): una encuesta que evalúa a 5 profesores es UNA;
+  · evaluaciones         = calificaciones de un profesor-materia dentro de una encuesta (esa misma encuesta = 5);
+  · respuestas           = filas de calificación individual (evaluaciones × 12 preguntas);
+  · promedios            = siempre sobre las respuestas que de verdad corresponden al profesor/materia/grupo filtrado.
+Los reportes no exponen ningún dato de identidad: la encuesta es anónima y no existe tal dato en la base.
+Todos los promedios se calculan en SQL a partir de `respuestas`;
 las agrupaciones solo unen tablas N:1 (grupo, profesor, materia), de modo que ninguna respuesta
 se cuenta dos veces. AVG se hace en doble precisión (`+ 0e0`) para no redondear dos veces."""
 from flask import Blueprint, jsonify, request
@@ -65,6 +71,16 @@ def reporte(tipo):
             raise ErrorHttp(400, "La materia no está asignada al profesor seleccionado.")
         filtros["materia"] = m
 
+    # El reporte «grupo + profesor» solo tiene sentido para un profesor que da clase a ese grupo
+    if tipo == "grupo-profesor":
+        sql = "SELECT 1 AS ok FROM asignaciones WHERE grupo_id = %s AND profesor_id = %s"
+        par_a = [f["grupo"], f["profesor"]]
+        if f["materia"]:
+            sql += " AND materia_id = %s"
+            par_a.append(f["materia"])
+        if not db.una(sql, par_a):
+            raise ErrorHttp(400, "El profesor no está asignado a ese grupo" + (" con esa materia." if f["materia"] else "."))
+
     cond, par = [], []
     for campo, col in (("grupo", "e.grupo_id"), ("profesor", "e.profesor_id"), ("materia", "e.materia_id")):
         if f[campo]:
@@ -74,9 +90,11 @@ def reporte(tipo):
 
     # ---- 1) Resumen: evaluaciones, respuestas y promedio de todas las respuestas ----
     r1 = db.una(
-        f"""SELECT COUNT(DISTINCT e.id) AS evaluaciones, COUNT(*) AS respuestas, AVG(r.calificacion + 0e0) AS promedio
+        f"""SELECT COUNT(DISTINCT e.encuesta_id) AS encuestas, COUNT(DISTINCT e.id) AS evaluaciones, COUNT(*) AS respuestas,
+                   AVG(r.calificacion + 0e0) AS promedio
               FROM evaluaciones e JOIN respuestas r ON r.evaluacion_id = e.id {WHERE}""", par)
-    resumen = {"evaluaciones": r1["evaluaciones"], "respuestas": r1["respuestas"], "promedio": _num(r1["promedio"])}
+    resumen = {"encuestas": r1["encuestas"], "evaluaciones": r1["evaluaciones"], "respuestas": r1["respuestas"],
+               "promedio": _num(r1["promedio"])}
 
     base = {"tipo": tipo, "filtros": filtros, "resumen": resumen, "totalPreguntas": N,
             "porPregunta": [], "porProfesorMateria": [], "porProfesor": [], "porMateria": [],
@@ -130,7 +148,7 @@ def reporte(tipo):
 
     # ---- 6) Detalle por evaluación (equivale a la tabla "por alumno" original) ----
     ev = db.filas(
-        f"""SELECT e.id, e.creado_en, e.comentario, g.clave AS grupo, p.nombre AS profesor, m.nombre AS materia
+        f"""SELECT e.id, e.encuesta_id, e.creado_en, e.comentario, g.clave AS grupo, p.nombre AS profesor, m.nombre AS materia
               FROM evaluaciones e
               JOIN grupos g ON g.id = e.grupo_id JOIN profesores p ON p.id = e.profesor_id JOIN materias m ON m.id = e.materia_id
               {WHERE} ORDER BY e.creado_en, e.id LIMIT %s""", par + [LIMITE_DETALLE + 1])
@@ -143,7 +161,7 @@ def reporte(tipo):
                 f"""SELECT evaluacion_id, num_pregunta, calificacion FROM respuestas
                      WHERE evaluacion_id IN ({db.marcadores(ids)}) ORDER BY evaluacion_id, num_pregunta""", ids):
             por_eval.setdefault(r["evaluacion_id"], [None] * N)[r["num_pregunta"] - 1] = r["calificacion"]
-        base["detalle"] = [{"id": e["id"], "fecha": e["creado_en"], "grupo": e["grupo"], "profesor": e["profesor"],
+        base["detalle"] = [{"id": e["id"], "encuesta": e["encuesta_id"], "fecha": e["creado_en"], "grupo": e["grupo"], "profesor": e["profesor"],
                             "materia": e["materia"], "comentario": e["comentario"], "respuestas": por_eval.get(e["id"], [])}
                            for e in ev]
     return jsonify(base)

@@ -44,6 +44,16 @@ define la contraseña de `root`; **anótala**.
 
 ## 3. Ejecutar el script SQL
 
+> **¿Ya tenías la base `evaluacion_docente` creada con una versión anterior?** No la borres: abre y ejecuta `database/migracion_asignaciones.sql`
+> (agrega la tabla `asignaciones`, corrige el formato de grupo y conserva tus datos). Luego, en la terminal con el entorno activo:
+> `python normalizar_nombres.py` muestra qué nombres se corregirían y `python normalizar_nombres.py --aplicar` los guarda.
+> Después captura en **Administrador → Asignaciones** qué profesores dan clase a cada grupo.
+>
+> **Si vienes de la versión con una evaluación por profesor** ejecuta, en este orden, `database/migracion_asignaciones.sql` (si aún no lo hiciste) y
+> luego `database/migracion_encuestas.sql`. La segunda agrega el número de alumnos y la contraseña (cifrada) de cada grupo, los apellidos del profesor y la tabla
+> `encuestas`; reconstruye las encuestas anteriores de la forma mínima posible y al final muestra el estado de cada grupo. Tus datos no se borran.
+> Los grupos existentes quedan con **0 alumnos y sin contraseña**, así que no aceptan encuestas hasta que el administrador capture ambos datos en **Grupos**.
+
 1. En Workbench: **File → Open SQL Script…** y elige `database/schema.sql` del proyecto.
 2. No selecciones nada y presiona el **rayo ⚡** (*Execute*) o `Ctrl + Shift + Enter`. Esto ejecuta **todo** el script.
 3. En el panel inferior *Output* todas las líneas deben quedar en verde (✔). El script se puede ejecutar varias veces
@@ -53,7 +63,7 @@ define la contraseña de `root`; **anótala**.
 
 1. En el panel **Navigator → SCHEMAS** presiona el icono de **refrescar** (dos flechas circulares).
 2. Despliega `evaluacion_docente → Tables`: deben verse **9 tablas**:
-   `administradores, evaluaciones, grupos, materias, preguntas, profesor_materia, profesores, respuestas, sesiones`.
+   `administradores, asignaciones, evaluaciones, grupos, materias, preguntas, profesor_materia, profesores, respuestas, sesiones`.
 3. O ejecuta en una pestaña de consulta:
    ```sql
    USE evaluacion_docente;
@@ -86,12 +96,16 @@ FLUSH PRIVILEGES;
    DB_PASSWORD=la_contraseña_de_ese_usuario
    DB_NAME=evaluacion_docente
    SESSION_SECRET=<texto aleatorio de 32+ caracteres>
+   CLAVE_CIFRADO_ACCESO=<clave Fernet: ejecuta  python generar_clave.py>
    ```
 3. Para generar el `SESSION_SECRET`, ejecuta y pega el resultado:
    ```
    python -c "import secrets; print(secrets.token_hex(48))"
    ```
-4. **Nunca** subas `.env` a GitHub ni lo compartas (ya está en `.gitignore`).
+4. `CLAVE_CIFRADO_ACCESO` cifra las contraseñas de los grupos dentro de MySQL. Guárdala en un respaldo **distinto** del de la base de datos: sin ella
+   las contraseñas guardadas no se pueden descifrar (habría que asignarlas otra vez). No la cambies por una nueva sin conservar la anterior
+   (`nueva,anterior`).
+5. **Nunca** subas `.env` a GitHub ni lo compartas (ya está en `.gitignore`).
 
 ## 6. Instalar las dependencias (entorno virtual de Python)
 
@@ -146,18 +160,24 @@ Si olvidas la contraseña, ejecuta el mismo comando con el mismo usuario y se re
 
 1. En http://localhost:3000 presiona **Administrador** e inicia sesión.
 2. Pestaña **Materias** → escribe el nombre (mín. 3 caracteres) → *Guardar materia*.
-3. Pestaña **Profesores** → escribe el nombre completo (solo letras y espacios, 5 a 60 caracteres) → *Guardar profesor*.
+3. Pestaña **Profesores** → escribe el/los **nombre(s)** (de 1 a 5), el **apellido paterno** (obligatorio) y, si lo tiene, el **apellido materno** (opcional) → *Guardar profesor*.
+   Solo letras, acentos, ñ, espacios y guiones. Se guarda con formato uniforme: `josé emmanuel` + `ARREDONDO` queda como `José Emmanuel Arredondo`.
 4. En la fila del profesor presiona **Materias** → elige una materia → **Asignar**. Repite para cada materia que imparte.
-   (Un profesor sin materias aparece en la encuesta, pero avisa que no tiene materias asignadas.)
-5. Pestaña **Grupos** → clave con formato `AAA0000` (ej. `GSI0252`) → *Guardar grupo*.
-6. Cada tabla permite **Editar**, **Desactivar/Activar** y **Eliminar**. Si algo ya tiene evaluaciones, no se puede eliminar:
+5. Pestaña **Grupos** → clave con formato `AAAA000` (ej. `GTID244`), **número de alumnos** (entero positivo; es el máximo de encuestas del grupo) y **contraseña de acceso**
+   (puedes usar *Generar contraseña*) → *Guardar grupo*. La tabla muestra siempre la contraseña vigente, las encuestas recibidas y las disponibles.
+   Entrega a cada grupo SU contraseña; sin contraseña o sin alumnos el grupo no recibe encuestas.
+6. Pestaña **Asignaciones** → elige el grupo → elige el profesor y una de sus materias → **Asignar al grupo**. Repite por cada profesor que da clase
+   a ese grupo. Los alumnos solo verán a los profesores asignados a su grupo; un profesor sin grupos aparece con advertencia en la pestaña Profesores.
+7. Cada tabla permite **Editar**, **Desactivar/Activar** y **Eliminar**. Si algo ya tiene evaluaciones, no se puede eliminar:
    **desactívalo** y el historial se conserva (los desactivados dejan de aparecer en la encuesta, pero siguen en los reportes).
 
 ## 10. Guardar una evaluación y verificarla en Workbench
 
 1. Abre http://localhost:3000 (en una ventana normal o de otro navegador, sin sesión de administrador).
-2. Escribe el grupo (ej. `GSI0252`), elige el **profesor** (la **materia** se selecciona sola si solo tiene una; si tiene varias, elige).
-3. Contesta las 12 preguntas, agrega un comentario opcional y presiona **Guardar encuesta**. Debe aparecer «✔ Encuesta guardada».
+2. Elige el **grupo** (ej. `GTID244`) y escribe su **contraseña**. Solo si el servidor la acepta aparece la tabla numerada de profesores y materias del grupo
+   y, debajo, el cuestionario de cada profesor con botones de calificación del 5 al 10.
+3. Contesta las 12 preguntas de TODOS los profesores, agrega comentarios opcionales y presiona **Enviar encuesta**. Se guarda UNA encuesta con todas las evaluaciones
+   y aparece «✔ Tu encuesta se guardó correctamente». Para otra encuesta hay que escribir de nuevo la contraseña.
 4. En Workbench ejecuta:
    ```sql
    USE evaluacion_docente;

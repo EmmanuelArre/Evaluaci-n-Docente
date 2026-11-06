@@ -32,6 +32,11 @@ def leer_config():
         "DB_NAME": env.get("DB_NAME", "evaluacion_docente"),
         "SESSION_SECRET": env.get("SESSION_SECRET", ""),
         "SESSION_MINUTOS": _entero("SESSION_MINUTOS", 120),
+        # Clave(s) Fernet con las que se cifran las contraseñas de acceso de los grupos. Se separan por coma si hay
+        # más de una (la primera cifra; todas descifran: sirve para rotar la clave sin perder las contraseñas).
+        "CLAVE_CIFRADO_ACCESO": env.get("CLAVE_CIFRADO_ACCESO", ""),
+        # Minutos que dura la autorización de un alumno después de escribir la contraseña del grupo
+        "ACCESO_MINUTOS": _entero("ACCESO_MINUTOS", 60),
         # true solo si el sistema se publica detrás de HTTPS
         "COOKIE_SECURE": env.get("COOKIE_SECURE", "false").lower() == "true",
     }
@@ -43,6 +48,16 @@ def validar_config(cfg):
         faltan.append("DB_USER")
     if len(cfg["SESSION_SECRET"]) < 32:
         faltan.append("SESSION_SECRET (mínimo 32 caracteres)")
+    claves = [k.strip() for k in cfg["CLAVE_CIFRADO_ACCESO"].split(",") if k.strip()]
+    if not claves:
+        faltan.append("CLAVE_CIFRADO_ACCESO (genérala con: python generar_clave.py)")
+    else:
+        from cryptography.fernet import Fernet
+        try:
+            for k in claves:
+                Fernet(k.encode())
+        except (ValueError, TypeError):
+            faltan.append("CLAVE_CIFRADO_ACCESO (no es una clave Fernet válida; genérala con: python generar_clave.py)")
     if faltan:
         raise ConfigIncompleta(
             "Configuración incompleta en el archivo .env: " + ", ".join(faltan)

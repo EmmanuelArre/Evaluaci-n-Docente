@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="encabezado">
-  <h1>UNIVERSIDAD TECNOLÓGICA DEL NORTE DE GUANAJUATO</h1>
+  <h1>UNIVERSIDAD TECNOLÓGICA DEL NORTE DE GUANAJUATO - ENCUESTAS :) </h1>
   <nav>
     <a class="activo" href="index.html">1. Preguntas</a>
     <a class="boton" href="admin.html" id="btnAdmin">Administrador</a>
@@ -17,57 +17,65 @@
 </header>
 
 <main>
-  <form id="formEncuesta" novalidate>
-    <section class="tarjeta">
-      <h2>Datos generales</h2>
+  <section class="tarjeta" id="paso1">
+    <h2>Acceso a la encuesta</h2>
+    <form id="formAcceso" novalidate autocomplete="off">
       <div class="fila">
         <div class="campo">
           <label for="grupo">Grupo</label>
-          <input id="grupo" name="grupo" type="text" required minlength="7" maxlength="7" pattern="[A-Za-z]{4}[0-9]{3}" title="4 letras y 3 dígitos (ej. GTID244)" placeholder="GTID244" autocomplete="off" autocapitalize="characters" spellcheck="false">
-          <small class="error" id="e-grupo"></small>
-        </div>
-        <div class="campo">
-          <label for="profesor">Profesor</label>
-          <select id="profesor" name="profesor" required>
-            <option value="">Cargando profesores…</option>
+          <select id="grupo" name="grupo" required>
+            <option value="">Cargando grupos…</option>
           </select>
-          <small class="error" id="e-profesor" role="alert"></small>
+          <small class="error" id="e-grupo" role="alert"></small>
         </div>
-        <div class="campo">
-          <label for="materia">Materia</label>
-          <select id="materia" name="materia" required disabled>
-            <option value="">Primero selecciona un profesor</option>
-          </select>
-          <small class="info" id="i-materia"></small>
-          <small class="error" id="e-materia" role="alert"></small>
+        <div class="campo" id="campoClave" hidden>
+          <label for="clave">Contraseña del grupo <span id="nombreGrupo"></span></label>
+          <input type="password" id="clave" name="clave" maxlength="200" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <small class="error" id="e-clave" role="alert"></small>
         </div>
       </div>
+      <div class="botones" id="botonesAcceso" hidden>
+        <button type="submit" id="btnAcceder">Acceder a la encuesta</button>
+      </div>
+      <small class="info">La encuesta es anónima: la contraseña solo autoriza el acceso del grupo y no identifica a quien responde.</small>
+      <small class="error" id="e-acceso" role="alert"></small>
+    </form>
+  </section>
+
+  <form id="formEncuesta" novalidate hidden>
+    <section class="tarjeta">
+      <h2>Profesores y materias del grupo <span id="tituloGrupo"></span></h2>
+      <p class="ayuda" id="disponibilidad" role="status"></p>
+      <div class="tabla-wrap">
+        <table class="tabla-prof">
+          <thead><tr><th>N.º</th><th>Profesor</th><th>Materia</th></tr></thead>
+          <tbody id="tablaProfesores"></tbody>
+        </table>
+      </div>
+      <p class="ayuda" id="vacio" hidden>Este grupo todavía no tiene profesores asignados. Avisa al administrador.</p>
     </section>
 
-    <section class="tarjeta"> 
-      <h2>Encuesta del alumno</h2>
-      <p class="ayuda">Califica cada afirmación de <b>5</b> (más bajo) a <b>10</b> (más alto).</p>
-      <div class="encab-preg"><span>No.</span><span>Pregunta</span><span>Calificación</span></div>
-      <div id="preguntas"></div>
-      <small class="error" id="e-preguntas" role="alert"></small>
+    <div id="secciones"></div>
 
-      <div class="campo">
-        <label for="comentario">Comentarios (opcional)</label>
-        <textarea id="comentario" maxlength="200" rows="2"></textarea>
-        <small id="contador">0 / 200</small>
-        <small class="error" id="e-comentario" role="alert"></small>
-      </div>
+    <section class="tarjeta" id="pie">
+      <p class="ayuda">Califica cada afirmación de <b>5</b> (más bajo) a <b>10</b> (más alto). Todas las preguntas son obligatorias; se envía una sola encuesta con la evaluación de todos los profesores.</p>
       <div class="botones">
-        <button type="submit" id="btnGuardar">Guardar encuesta</button>
-        <button type="button" id="btnLimpiar" class="secundario">Limpiar</button>
-        <span id="aviso" class="aviso" role="status" hidden>✔ Encuesta guardada. ¡Gracias por tu opinión!</span>
+        <button type="submit" id="btnGuardar">Enviar encuesta</button>
+        <button type="button" id="btnCancelar" class="secundario">Salir sin enviar</button>
       </div>
       <small class="error" id="e-envio" role="alert"></small>
     </section>
   </form>
+
+  <section class="tarjeta" id="confirmacion" hidden>
+    <h2>¡Gracias!</h2>
+    <p class="aviso" role="status">✔ Tu encuesta se guardó correctamente. </p>
+    <p class="ayuda">Para contestar otra encuesta (por ejemplo, de otro compañero) escribe de nuevo la contraseña del grupo.</p>
+    <div class="botones"><button type="button" id="btnOtra">Volver al inicio</button></div>
+  </section>
 </main>
-<script src="js/config.js"></script>
-<script src="js/datos.js"></script>
-<script src="js/captura.js"></script>
+<script src="js/config.js" charset="utf-8"></script>
+<script src="js/datos.js" charset="utf-8"></script>
+<script src="js/captura.js" charset="utf-8"></script>
 </body>
 </html>

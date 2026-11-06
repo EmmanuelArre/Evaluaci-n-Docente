@@ -18,6 +18,9 @@ const TITULO = {
 let tipo = "grupo";
 let ultimo = null;           // parámetros del último reporte (para regenerar tras borrar)
 let turnoMaterias = 0;
+let turnoGrupo = 0;
+let profesoresTodos = [];    // catálogo completo (reportes que no dependen del grupo)
+let asignacionesGrupo = [];  // profesor/materia que tiene asignados el grupo elegido (reporte grupo + profesor)
 
 const fmt = n => (n === null || n === undefined ? "–" : f1(Number(n)));
 
@@ -49,8 +52,8 @@ function fila(tbody, valores) {
   if (!g.ok || !p.ok) { $("e-reporte").textContent = (g.ok ? p : g).error; return; }
   llenarSelect($("f-grupo"), g.datos, g.datos.length ? "Selecciona un grupo" : "No hay grupos registrados",
     x => x.clave + (x.descripcion ? " – " + x.descripcion : "") + (x.activo ? "" : " (inactivo)"));
-  llenarSelect($("f-profesor"), p.datos, p.datos.length ? "Selecciona un profesor" : "No hay profesores registrados",
-    x => x.nombre + (x.activo ? "" : " (inactivo)"));
+  profesoresTodos = p.datos;
+  pintarProfesores();
   llenarSelect($("f-materia"), [], "Todas las materias");
   cambiarTipo("grupo");
 })();
@@ -81,6 +84,7 @@ function cambiarTipo(t) {
   ["f-grupo", "f-profesor", "f-materia"].forEach(i => setErr(i, ""));
   $("e-reporte").textContent = "";
   limpiarResultado();
+  cargarProfesoresDelGrupo();
 }
 
 function setErr(id, msg) {
@@ -89,22 +93,64 @@ function setErr(id, msg) {
   return !msg;
 }
 
-// La materia depende del profesor: solo se ofrecen las asignadas a él
-$("f-profesor").addEventListener("change", async () => {
-  setErr("f-profesor", "");
+// En el reporte «grupo + profesor» el combo de profesores solo ofrece a quienes dan clase al grupo elegido;
+// en los demás reportes se ofrece el catálogo completo.
+function pintarProfesores() {
+  const sel = $("f-profesor"), previo = sel.value;
+  if (tipo === "grupo-profesor") {
+    const vistos = new Map();
+    asignacionesGrupo.forEach(a => vistos.set(a.profesor_id, a.profesor + (a.profesor_activo ? "" : " (inactivo)")));
+    const items = Array.from(vistos, ([id, nombre]) => ({ id, nombre }));
+    llenarSelect(sel, items, !$("f-grupo").value ? "Primero selecciona un grupo"
+      : items.length ? "Selecciona un profesor" : "Este grupo no tiene profesores asignados");
+    sel.disabled = !items.length;
+  } else {
+    llenarSelect(sel, profesoresTodos, profesoresTodos.length ? "Selecciona un profesor" : "No hay profesores registrados",
+      x => x.nombre + (x.activo ? "" : " (inactivo)"));
+    sel.disabled = false;
+  }
+  if (previo && Array.from(sel.options).some(o => o.value === previo)) sel.value = previo;
+  pintarMaterias();
+}
+
+async function cargarProfesoresDelGrupo() {
+  if (tipo !== "grupo-profesor") { asignacionesGrupo = []; pintarProfesores(); return; }
+  const gid = $("f-grupo").value, turno = ++turnoGrupo;
+  asignacionesGrupo = [];
+  pintarProfesores();                                   // limpia al instante los profesores del grupo anterior
+  if (!gid) return;
+  const r = await api("GET", `/api/admin/grupos/${encodeURIComponent(gid)}/asignaciones`);
+  if (turno !== turnoGrupo) return;
+  if (r.status === 401) { window.location.href = "admin.html"; return; }
+  if (!r.ok) { setErr("f-profesor", r.error); return; }
+  asignacionesGrupo = r.datos;
+  pintarProfesores();
+}
+
+// La materia depende del profesor: solo se ofrecen las asignadas a él (y, con grupo, las que da a ese grupo)
+async function pintarMaterias() {
   const id = $("f-profesor").value, sel = $("f-materia");
   const turno = ++turnoMaterias;
   llenarSelect(sel, [], "Todas las materias");
   sel.disabled = true;
   if (!id) return;
+  if (tipo === "grupo-profesor") {
+    const mats = asignacionesGrupo.filter(a => String(a.profesor_id) === id)
+      .map(a => ({ id: a.materia_id, nombre: a.materia, activo: a.materia_activa }));
+    llenarSelect(sel, mats, mats.length ? "Todas las materias" : "Sin materias asignadas", m => m.nombre + (m.activo ? "" : " (inactiva)"));
+    sel.disabled = !mats.length;
+    return;
+  }
   const r = await api("GET", `/api/admin/profesores/${encodeURIComponent(id)}/materias`);
   if (turno !== turnoMaterias) return;
   if (!r.ok) { setErr("f-materia", r.error); return; }
   llenarSelect(sel, r.datos, r.datos.length ? "Todas las materias" : "Sin materias asignadas",
     m => m.nombre + (m.activo ? "" : " (inactiva)"));
   sel.disabled = !r.datos.length;
-});
+}
+$("f-profesor").addEventListener("change", () => { setErr("f-profesor", ""); pintarMaterias(); });
 ["f-grupo", "f-materia"].forEach(i => $(i).addEventListener("change", () => setErr(i, "")));
+$("f-grupo").addEventListener("change", cargarProfesoresDelGrupo);
 
 $("formReporte").addEventListener("submit", e => {
   e.preventDefault();
@@ -154,6 +200,7 @@ function pintar(d) {
   $("r-grupo").textContent = F.grupo ? F.grupo.clave : "Todos";
   $("r-profesor").textContent = F.profesor ? F.profesor.nombre : (d.porProfesor.length === 1 ? d.porProfesor[0].nombre : "Todos");
   $("r-materia").textContent = F.materia ? F.materia.nombre : (d.porMateria.length === 1 ? d.porMateria[0].nombre : "Todas");
+  $("r-encuestas").textContent = d.resumen.encuestas;
   $("r-total").textContent = d.resumen.evaluaciones;
   $("r-respuestas").textContent = d.resumen.respuestas;
   $("r-general").textContent = fmt(d.resumen.promedio);

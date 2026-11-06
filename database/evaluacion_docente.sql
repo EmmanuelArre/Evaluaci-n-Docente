@@ -1,8 +1,5 @@
--- =====================================================================
---  Evaluación Docente – Esquema MySQL 8.0
---  Ábrelo en MySQL Workbench y ejecútalo completo (rayo ⚡ o Ctrl+Shift+Enter).
---  Es re-ejecutable: usa IF NOT EXISTS / INSERT IGNORE y NO borra datos.
--- =====================================================================
+DROP DATABASE IF EXISTS evaluacion_docente;
+
 
 CREATE DATABASE IF NOT EXISTS evaluacion_docente
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -15,21 +12,37 @@ CREATE TABLE IF NOT EXISTS grupos (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
   clave          CHAR(7) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   descripcion    VARCHAR(100) NULL,
+  -- Alumnos del grupo = tope de encuestas válidas. 0 = aún sin capturar: el grupo no acepta encuestas.
+  num_alumnos    SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  -- Contraseña de acceso a la encuesta del grupo, CIFRADA con Fernet (AES-128-CBC + HMAC). Nunca en texto
+  -- plano. La clave de cifrado vive en la variable de entorno CLAVE_CIFRADO_ACCESO, no en la base ni en el código.
+  acceso_cifrado VARCHAR(512) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  -- Se incrementa al cambiar la contraseña: invalida las autorizaciones que ya estaban abiertas.
+  acceso_version INT UNSIGNED NOT NULL DEFAULT 0,
   activo         TINYINT(1) NOT NULL DEFAULT 1,
   creado_en      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   CONSTRAINT uq_grupos_clave UNIQUE (clave),
-  CONSTRAINT ck_grupos_clave CHECK (clave REGEXP '^[A-Z]{3}[0-9]{4}$'),
+  CONSTRAINT ck_grupos_clave CHECK (clave REGEXP '^[A-Z]{4}[0-9]{3}$'),
+  CONSTRAINT ck_grupos_alumnos CHECK (num_alumnos BETWEEN 0 AND 99),
   CONSTRAINT ck_grupos_activo CHECK (activo IN (0, 1))
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- PROFESORES  (RP-02: mínimo 5 y máximo 60 caracteres)
+-- PROFESORES
+--  · nombre = nombre completo ya armado (nombres + apellido paterno + apellido materno). Es el que usan los
+--    reportes y la tabla de la encuesta, y es único.
+--  · nombres (1 a 5 nombres de pila) y apellido_paterno son obligatorios al registrar/editar desde la aplicación;
+--    apellido_materno es opcional (NULL). Quedan NULL solo en profesores anteriores a esta versión,
+--    hasta que se editen.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS profesores (
-  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  nombre         VARCHAR(60) NOT NULL,
+  id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  nombre           VARCHAR(120) NOT NULL,
+  nombres          VARCHAR(60) NULL,
+  apellido_paterno VARCHAR(28) NULL,
+  apellido_materno VARCHAR(28) NULL,
   activo         TINYINT(1) NOT NULL DEFAULT 1,
   creado_en      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   actualizado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -71,6 +84,23 @@ CREATE TABLE IF NOT EXISTS profesor_materia (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS asignaciones (
+  grupo_id    INT UNSIGNED NOT NULL,
+  profesor_id INT UNSIGNED NOT NULL,
+  materia_id  INT UNSIGNED NOT NULL,
+  activo      TINYINT(1) NOT NULL DEFAULT 1,
+  creado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (grupo_id, profesor_id, materia_id),
+  INDEX idx_asig_profesor (profesor_id),
+  INDEX idx_asig_prof_mat (profesor_id, materia_id),
+  CONSTRAINT ck_asig_activo CHECK (activo IN (0, 1)),
+  CONSTRAINT fk_asig_grupo FOREIGN KEY (grupo_id) REFERENCES grupos (id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_asig_prof_mat FOREIGN KEY (profesor_id, materia_id)
+    REFERENCES profesor_materia (profesor_id, materia_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
 -- ---------------------------------------------------------------------
 -- PREGUNTAS  (catálogo oficial P1–P12, igual a js/config.js)
 -- ---------------------------------------------------------------------
@@ -82,19 +112,39 @@ CREATE TABLE IF NOT EXISTS preguntas (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- EVALUACIONES  (una por alumno; anónima: no guarda datos personales)
--- La llave foránea compuesta (profesor_id, materia_id) garantiza a nivel de
--- base de datos que la materia pertenece al profesor evaluado.
+-- ENCUESTAS  (UNA por envío del formulario; anónima: solo guarda el grupo y la fecha)
+-- Es lo que se cuenta contra el límite: encuestas de un grupo <= num_alumnos del grupo.
+-- Una encuesta que evalúa a 5 profesores es UNA fila aquí y 5 filas en evaluaciones.
+-- No existe ninguna columna que identifique al alumno (ni nombre, ni matrícula, ni correo, ni IP).
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS encuestas (
+  id        BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  grupo_id  INT UNSIGNED NOT NULL,
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_encuestas_id_grupo (id, grupo_id),   -- destino de la FK compuesta de evaluaciones
+  INDEX idx_enc_grupo (grupo_id),
+  CONSTRAINT fk_enc_grupo FOREIGN KEY (grupo_id) REFERENCES grupos (id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- ---------------------------------------------------------------------
+-- EVALUACIONES  (la calificación de UN profesor-materia dentro de una encuesta)
+-- · (encuesta_id, grupo_id) → encuestas: la evaluación pertenece a una encuesta del MISMO grupo.
+-- · (grupo_id, profesor_id, materia_id) → asignaciones: el profesor imparte esa materia a ese grupo.
+-- · UNIQUE (encuesta_id, profesor_id, materia_id): una encuesta no evalúa dos veces la misma asignación.
 -- RESTRICT: no se puede borrar un grupo/profesor/materia/asignación con historial.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS evaluaciones (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  encuesta_id BIGINT UNSIGNED NOT NULL,
   grupo_id    INT UNSIGNED NOT NULL,
   profesor_id INT UNSIGNED NOT NULL,
   materia_id  INT UNSIGNED NOT NULL,
   comentario  VARCHAR(200) NULL,
   creado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_eval_encuesta_asig (encuesta_id, profesor_id, materia_id),
   INDEX idx_eval_grupo_prof_mat (grupo_id, profesor_id, materia_id),
   INDEX idx_eval_prof_mat (profesor_id, materia_id),
   INDEX idx_eval_creado (creado_en),
@@ -102,6 +152,12 @@ CREATE TABLE IF NOT EXISTS evaluaciones (
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_eval_prof_mat FOREIGN KEY (profesor_id, materia_id)
     REFERENCES profesor_materia (profesor_id, materia_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_eval_asignacion FOREIGN KEY (grupo_id, profesor_id, materia_id)
+    REFERENCES asignaciones (grupo_id, profesor_id, materia_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_eval_encuesta FOREIGN KEY (encuesta_id, grupo_id)
+    REFERENCES encuestas (id, grupo_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -123,7 +179,7 @@ CREATE TABLE IF NOT EXISTS respuestas (
 
 -- ---------------------------------------------------------------------
 -- ADMINISTRADORES  (solo se guarda el hash bcrypt, nunca la contraseña)
--- El primer administrador se crea con:  npm run crear-admin
+-- El primer administrador se crea con:  python crear_admin.py
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS administradores (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT,

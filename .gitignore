@@ -5,7 +5,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-# Credenciales y configuración local (NUNCA subir)
+# Credenciales y configuración local 
 .env
 .env.*
 !.env.example

@@ -45,6 +45,10 @@ def crear_app(cfg=None):
 
     app.extensions["limite_login"] = Limitador(15 * 60, 10)       # 10 intentos fallidos / 15 min / IP
     app.extensions["limite_envios"] = Limitador(10 * 60, 300)     # 300 envíos / 10 min / IP
+    # Contraseña de grupo: intentos FALLIDOS. Por IP+grupo (frena a quien adivina) y por grupo (frena ataques repartidos
+    # entre varias IP). Un salón comparte IP, de ahí que los topes sean holgados para alumnos que se equivocan al teclear.
+    app.extensions["limite_acceso_ip"] = Limitador(10 * 60, 8)
+    app.extensions["limite_acceso_grupo"] = Limitador(15 * 60, 60)
     app.teardown_appcontext(db.cerrar)
 
     # ---------- Control de acceso y defensas (un único punto para TODO /api/admin) ----------

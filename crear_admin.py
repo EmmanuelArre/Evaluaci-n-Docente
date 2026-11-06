@@ -40,9 +40,10 @@ def main():
         usuario, err = validar.usuario(usuario)
         if err:
             raise ValueError("Usuario no válido (3 a 30 caracteres: letras, números, _ . -).")
-        nombre = validar.colapsar(os.environ.get("ADMIN_NOMBRE") or input("Nombre completo: "))
-        if not 3 <= len(nombre) <= 60:
-            raise ValueError("El nombre debe tener de 3 a 60 caracteres.")
+        nombre, err = validar.nombre_persona(os.environ.get("ADMIN_NOMBRE") or input("Nombre completo: "),
+                                             "El nombre", minimo=3)
+        if err:
+            raise ValueError(err)
         password = os.environ.get("ADMIN_PASSWORD")
         if not password:
             password = getpass.getpass("Contraseña (no se mostrará): ")

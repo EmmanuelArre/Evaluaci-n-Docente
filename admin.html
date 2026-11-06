@@ -45,6 +45,7 @@
       <button type="button" role="tab" class="pestana activa" data-tab="grupos">Grupos</button>
       <button type="button" role="tab" class="pestana" data-tab="profesores">Profesores</button>
       <button type="button" role="tab" class="pestana" data-tab="materias">Materias</button>
+      <button type="button" role="tab" class="pestana" data-tab="asignaciones">Asignaciones</button>
     </div>
     <p id="avisoPanel" class="aviso" role="status" hidden></p>
     <p id="errorPanel" class="error" role="alert"></p>
@@ -66,9 +67,20 @@
               <input id="g-desc" maxlength="100" autocomplete="off">
               <small class="error" id="e-g-desc"></small>
             </div>
+            <div class="campo">
+              <label for="g-alumnos">Número de alumnos</label>
+              <input id="g-alumnos" inputmode="numeric" maxlength="2" placeholder="35" autocomplete="off" title="Entero positivo. Es el máximo de encuestas que acepta el grupo.">
+              <small class="error" id="e-g-alumnos"></small>
+            </div>
+            <div class="campo">
+              <label for="g-acceso">Contraseña de acceso del grupo</label>
+              <input id="g-acceso" maxlength="40" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Sin espacios, 4 a 40 caracteres">
+              <small class="error" id="e-g-acceso"></small>
+            </div>
             <label class="check"><input type="checkbox" id="g-activo" checked> Activo</label>
           </div>
           <div class="botones">
+            <button type="button" class="secundario" id="g-generar">Generar contraseña</button>
             <button type="submit">Guardar grupo</button>
             <button type="button" class="secundario" id="g-cancelar" hidden>Cancelar edición</button>
           </div>
@@ -77,7 +89,7 @@
       <div class="tarjeta">
         <h2>Grupos registrados</h2>
         <div class="tabla-wrap"><table class="tabla-admin" id="tablaGrupos"><thead><tr>
-          <th>Clave</th><th>Descripción</th><th>Estado</th><th>Evaluaciones</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
+          <th>Clave</th><th>Descripción</th><th>Alumnos</th><th>Encuestas</th><th>Disponibles</th><th>Contraseña de acceso</th><th>Estado</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
 
@@ -89,9 +101,19 @@
           <input type="hidden" id="p-id">
           <div class="fila-admin">
             <div class="campo">
-              <label for="p-nombre">Nombre completo</label>
-              <input id="p-nombre" required minlength="5" maxlength="60" pattern="[A-Za-zÁÉÍÓÚÜÑáéíóúüñ\s.]+" placeholder="Verónica Hernández Monzón" autocomplete="off">
-              <small class="error" id="e-p-nombre"></small>
+              <label for="p-nombres">Nombre(s) <small>(1 a 5)</small></label>
+              <input id="p-nombres" required maxlength="60" placeholder="José Emmanuel" autocomplete="off" title="Se guarda con la primera letra de cada nombre en mayúscula.">
+              <small class="error" id="e-p-nombres"></small>
+            </div>
+            <div class="campo">
+              <label for="p-paterno">Apellido paterno</label>
+              <input id="p-paterno" required maxlength="28" placeholder="Arredondo" autocomplete="off">
+              <small class="error" id="e-p-paterno"></small>
+            </div>
+            <div class="campo">
+              <label for="p-materno">Apellido materno <small>(opcional)</small></label>
+              <input id="p-materno" maxlength="28" placeholder="Escalante" autocomplete="off">
+              <small class="error" id="e-p-materno"></small>
             </div>
             <label class="check"><input type="checkbox" id="p-activo" checked> Activo</label>
           </div>
@@ -104,7 +126,7 @@
       <div class="tarjeta">
         <h2>Profesores registrados</h2>
         <div class="tabla-wrap"><table class="tabla-admin" id="tablaProfesores"><thead><tr>
-          <th>Nombre</th><th>Materias asignadas</th><th>Estado</th><th>Evaluaciones</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
+          <th>Nombre</th><th>Materias asignadas</th><th>Grupos</th><th>Estado</th><th>Evaluaciones</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
       </div>
       <div class="tarjeta" id="cajaAsignar" hidden>
         <h2 id="tit-asignar">Materias del profesor</h2>
@@ -147,10 +169,43 @@
           <th>Materia</th><th>Profesores</th><th>Estado</th><th>Evaluaciones</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
       </div>
     </section>
+
+    <!-- Asignaciones grupo ↔ profesor ↔ materia -->
+    <section id="tab-asignaciones" class="panel-tab" hidden>
+      <div class="tarjeta">
+        <h2>Quién da clase a cada grupo</h2>
+        <p class="ayuda">Los alumnos de un grupo solo verán a los profesores (y materias) que registres aquí. Un profesor puede estar en varios grupos y un grupo puede tener varios profesores.</p>
+        <div class="fila-admin">
+          <div class="campo">
+            <label for="as-grupo">Grupo</label>
+            <select id="as-grupo"></select>
+            <small class="error" id="e-as-grupo"></small>
+          </div>
+        </div>
+      </div>
+      <div class="tarjeta" id="cajaAsigGrupo" hidden>
+        <h2 id="tit-asig-grupo">Asignaciones</h2>
+        <form id="formAsigGrupo" class="fila-admin" novalidate>
+          <div class="campo">
+            <label for="as-profesor">Profesor</label>
+            <select id="as-profesor"></select>
+            <small class="error" id="e-as-profesor"></small>
+          </div>
+          <div class="campo">
+            <label for="as-materia">Materia</label>
+            <select id="as-materia" disabled></select>
+            <small class="error" id="e-as-materia"></small>
+          </div>
+          <div class="botones"><button type="submit">Asignar al grupo</button></div>
+        </form>
+        <div class="tabla-wrap"><table class="tabla-admin" id="tablaAsignaciones"><thead><tr>
+          <th>Profesor</th><th>Materia</th><th>Estado</th><th>Evaluaciones</th><th>Acciones</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </section>
   </div>
 </main>
-<script src="js/config.js"></script>
-<script src="js/datos.js"></script>
-<script src="js/admin.js"></script>
+<script src="js/config.js" charset="utf-8"></script>
+<script src="js/datos.js" charset="utf-8"></script>
+<script src="js/admin.js" charset="utf-8"></script>
 </body>
 </html>

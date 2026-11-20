@@ -30,6 +30,8 @@ def leer_config():
         "DB_USER": env.get("DB_USER", ""),
         "DB_PASSWORD": env.get("DB_PASSWORD", ""),
         "DB_NAME": env.get("DB_NAME", "evaluacion_docente"),
+        # true si el MySQL de la nube exige conexión cifrada (TiDB Cloud)
+        "DB_SSL": env.get("DB_SSL", "false").lower() == "true",
         "SESSION_SECRET": env.get("SESSION_SECRET", ""),
         "SESSION_MINUTOS": _entero("SESSION_MINUTOS", 120),
         # Clave(s) Fernet con las que se cifran las contraseñas de acceso de los grupos. Se separan por coma si hay

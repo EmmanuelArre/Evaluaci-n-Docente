@@ -164,7 +164,7 @@ function validarAlumnosFront(texto) {
   if (!/^\d+$/.test(t)) return { valor: null, error: "Escribe un número entero positivo (sin decimales, letras ni signos)." };
   const v = Number(t);
   if (v < 1) return { valor: null, error: "Debe ser un entero positivo (mínimo 1)." };
-  if (v > 99) return { valor: null, error: "Máximo 99 alumnos." };
+  if (v > 500) return { valor: null, error: "Máximo 500 alumnos." };
   if (encuestasGrupoEditado && v < encuestasGrupoEditado)
     return { valor: v, error: `Este grupo ya tiene ${encuestasGrupoEditado} encuestas válidas: el mínimo es ${encuestasGrupoEditado}. Las encuestas no se eliminan automáticamente.` };
   return { valor: v, error: "" };

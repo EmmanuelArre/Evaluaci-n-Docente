@@ -1,4 +1,15 @@
+"""Endpoints para el alumno (sin cuenta): grupos, acceso por contraseña, cuestionario y envío de la encuesta.
 
+Reglas centrales
+  · El alumno elige un grupo y escribe la contraseña de ESE grupo. El servidor la verifica y, solo si es correcta,
+    abre una autorización temporal (fila en `sesiones` + cookie httpOnly). Sin ella no hay cuestionario ni envío.
+  · Una ENCUESTA evalúa a todos los profesores-materias del grupo en un único envío y cuenta UNA vez para el límite
+    (encuestas del grupo <= alumnos del grupo). El conteo y el INSERT ocurren dentro de una transacción que bloquea
+    la fila del grupo (SELECT ... FOR UPDATE): dos envíos simultáneos no pueden ocupar la misma última plaza.
+  · La encuesta es anónima: no se pide ni se guarda nombre, matrícula, correo, IP ni identificador del alumno.
+  · No existe ningún endpoint público que devuelva "todos los profesores": solo los asignados al grupo y solo
+    después de validar la contraseña.
+"""
 import pymysql
 from flask import Blueprint, current_app, jsonify, request
 

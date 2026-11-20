@@ -1,4 +1,14 @@
+"""Cifrado reversible de las contraseñas de acceso de los grupos (el administrador debe poder verlas).
 
+· Algoritmo: Fernet (AES-128-CBC + HMAC-SHA256, con vector de inicialización aleatorio y marca de tiempo).
+  Dos cifrados de la misma contraseña dan resultados distintos; si alguien altera el texto cifrado, el
+  descifrado falla en lugar de devolver basura.
+· La CLAVE no está en el código ni en la base de datos: se lee de la variable de entorno
+  CLAVE_CIFRADO_ACCESO (archivo .env, que está en .gitignore). Quien lea solo la base de datos NO puede
+  recuperar las contraseñas.
+· Rotación: CLAVE_CIFRADO_ACCESO admite varias claves separadas por coma; la primera cifra y todas descifran.
+· Este módulo nunca escribe contraseñas en logs ni en mensajes de error.
+"""
 import hmac
 
 from cryptography.fernet import Fernet, InvalidToken, MultiFernet

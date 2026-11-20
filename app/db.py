@@ -1,14 +1,19 @@
 """Acceso a MySQL con PyMySQL. Solo el backend se conecta a la base; el navegador nunca."""
+import ssl
+
 import pymysql
 import pymysql.cursors
 from flask import current_app, g
 
 
 def conectar(cfg):
+    # TiDB Cloud (y la mayoría de MySQL en la nube) exige conexión cifrada. Con DB_SSL=true se usan los
+    # certificados del sistema; en tu MySQL local déjalo en false (o sin definir).
+    contexto_ssl = ssl.create_default_context() if cfg.get("DB_SSL") else None
     return pymysql.connect(
         host=cfg["DB_HOST"], port=cfg["DB_PORT"], user=cfg["DB_USER"], password=cfg["DB_PASSWORD"],
         database=cfg["DB_NAME"], charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor,
-        autocommit=True, connect_timeout=10,
+        autocommit=True, connect_timeout=10, ssl=contexto_ssl,
     )
 
 

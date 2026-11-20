@@ -1,12 +1,11 @@
 DROP DATABASE IF EXISTS evaluacion_docente;
 
-
 CREATE DATABASE IF NOT EXISTS evaluacion_docente
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE evaluacion_docente;
 
 -- ---------------------------------------------------------------------
--- GRUPOS  (clave formal AAA0000: 3 letras mayúsculas + 4 dígitos, RG-02)
+-- GRUPOS  (clave AAAA000: 4 letras mayúsculas + 3 dígitos, ej. GTID244)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS grupos (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -25,7 +24,7 @@ CREATE TABLE IF NOT EXISTS grupos (
   PRIMARY KEY (id),
   CONSTRAINT uq_grupos_clave UNIQUE (clave),
   CONSTRAINT ck_grupos_clave CHECK (clave REGEXP '^[A-Z]{4}[0-9]{3}$'),
-  CONSTRAINT ck_grupos_alumnos CHECK (num_alumnos BETWEEN 0 AND 99),
+  CONSTRAINT ck_grupos_alumnos CHECK (num_alumnos BETWEEN 0 AND 500),
   CONSTRAINT ck_grupos_activo CHECK (activo IN (0, 1))
 ) ENGINE=InnoDB;
 
@@ -33,9 +32,8 @@ CREATE TABLE IF NOT EXISTS grupos (
 -- PROFESORES
 --  · nombre = nombre completo ya armado (nombres + apellido paterno + apellido materno). Es el que usan los
 --    reportes y la tabla de la encuesta, y es único.
---  · nombres (1 a 5 nombres de pila) y apellido_paterno son obligatorios al registrar/editar desde la aplicación;
---    apellido_materno es opcional (NULL). Quedan NULL solo en profesores anteriores a esta versión,
---    hasta que se editen.
+--  · nombres (1 a 5 nombres de pila) y apellido_paterno los llena siempre la aplicación;
+--    apellido_materno es opcional (NULL).
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS profesores (
   id               INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -84,6 +82,14 @@ CREATE TABLE IF NOT EXISTS profesor_materia (
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- ---------------------------------------------------------------------
+-- ASIGNACIONES  (qué profesor imparte qué materia a qué grupo)
+-- Es la ÚNICA fuente para saber a quién puede evaluar un grupo:
+--   · un profesor puede dar clase a varios grupos y un grupo tiene varios profesores (N:M);
+--   · la llave primaria (grupo, profesor, materia) impide duplicados;
+--   · la llave foránea a profesor_materia impide asignar una materia que el profesor no imparte;
+--   · "activo" permite retirar una asignación conservando las evaluaciones históricas.
+-- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS asignaciones (
   grupo_id    INT UNSIGNED NOT NULL,
   profesor_id INT UNSIGNED NOT NULL,
@@ -195,7 +201,8 @@ CREATE TABLE IF NOT EXISTS administradores (
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------
--- SESIONES  (almacén de sesiones de express-session; las usa el backend)
+-- SESIONES  (sesiones del administrador y autorizaciones de alumno; las usa app/sesion.py)
+-- session_id guarda la huella HMAC del token de la cookie, nunca el token.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS sesiones (
   session_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
@@ -222,11 +229,12 @@ INSERT IGNORE INTO preguntas (num_pregunta, texto) VALUES
   (11, 'El profesor entra a tiempo a clase.'),
   (12, 'El profesor fomenta el auto-aprendizaje o actividades de lectura.');
 
+
+
 -- ---------------------------------------------------------------------
--- (RECOMENDADO, OPCIONAL) Usuario MySQL propio para la aplicación, en lugar
--- de "root". Quita los "-- " del bloque, cambia la contraseña y ejecútalo.
--- Después usa ese usuario en DB_USER / DB_PASSWORD del archivo .env.
+-- COMPROBACIÓN: debe mostrar 11 tablas y 12 preguntas
 -- ---------------------------------------------------------------------
--- CREATE USER IF NOT EXISTS 'evaluacion_app'@'localhost' IDENTIFIED BY 'CAMBIA_ESTA_CLAVE';
--- GRANT SELECT, INSERT, UPDATE, DELETE ON evaluacion_docente.* TO 'evaluacion_app'@'localhost';
--- FLUSH PRIVILEGES;
+SELECT COUNT(*) AS tablas
+  FROM information_schema.tables
+ WHERE table_schema = 'evaluacion_docente';
+SELECT COUNT(*) AS preguntas FROM preguntas;

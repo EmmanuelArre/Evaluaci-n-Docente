@@ -155,7 +155,7 @@ def guardar_encuesta():
                      FROM asignaciones a
                      JOIN profesores p ON p.id = a.profesor_id AND p.activo = 1
                      JOIN materias m ON m.id = a.materia_id AND m.activo = 1
-                    WHERE a.grupo_id = %s AND a.activo = 1 FOR SHARE""", (gid,))
+                    WHERE a.grupo_id = %s AND a.activo = 1 FOR UPDATE""", (gid,))
             esperadas = {(f["profesor_id"], f["materia_id"]) for f in cur.fetchall()}
             enviadas = {(e["profesor_id"], e["materia_id"]) for e in datos["evaluaciones"]}
             if not esperadas:

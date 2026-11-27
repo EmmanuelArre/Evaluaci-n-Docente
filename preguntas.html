@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encuesta – Preguntas</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<header class="encabezado">
+  <h1>UNIVERSIDAD TECNOLÓGICA DEL NORTE DE GUANAJUATO</h1>
+  <nav>
+    <a href="index.html">← Encuesta</a>
+    <a href="admin.html">Panel</a>
+    <a class="activo" href="preguntas.html">Preguntas</a>
+    <a href="reporte.html">Reportes</a>
+    <button type="button" class="secundario" id="btnSalir">Cerrar sesión</button>
+    <span id="quien" class="quien"></span>
+    <span id="fecha"></span>
+  </nav>
+</header>
+
+<main>
+  <p id="avisoPanel" class="aviso" role="status" hidden></p>
+  <p id="errorPanel" class="error" role="alert"></p>
+
+  <!-- ===== Alta y edición ===== -->
+  <section class="tarjeta">
+    <h2 id="tit-pregunta">Nueva pregunta</h2>
+    <form id="formPregunta" novalidate>
+      <input type="hidden" id="q-num">
+      <div class="campo">
+        <label for="q-texto">Texto de la pregunta</label>
+        <textarea id="q-texto" rows="3" maxlength="255" required autocomplete="off" placeholder="Ej. El profesor explica los temas con claridad."></textarea>
+        <small id="q-contador">0 / 255</small>
+        <small class="error" id="e-q-texto" role="alert"></small>
+      </div>
+      <div class="botones">
+        <button type="submit" id="q-guardar">Agregar pregunta</button>
+        <button type="button" class="secundario" id="q-cancelar" hidden>Cancelar edición</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ===== Lista y búsqueda ===== -->
+  <section class="tarjeta">
+    <h2>Preguntas de la encuesta</h2>
+    <form id="formBuscar" class="fila-admin" novalidate>
+      <div class="campo">
+        <label for="b-texto">Buscar en el texto</label>
+        <input id="b-texto" maxlength="255" autocomplete="off" placeholder="Palabra o frase">
+      </div>
+      <div class="botones">
+        <button type="submit">Buscar</button>
+        <button type="button" class="secundario" id="b-limpiar">Ver todas</button>
+      </div>
+    </form>
+    <p id="resumen" role="status"></p>
+    <div class="tabla-wrap">
+      <table class="tabla-admin" id="tablaPreguntas">
+        <thead><tr><th>No.</th><th>Pregunta</th><th>Respuestas guardadas</th><th>Acciones</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p id="vacio" hidden>No hay preguntas que coincidan con la búsqueda.</p>
+  </section>
+</main>
+
+<script src="js/datos.js" charset="utf-8"></script>
+<script src="js/preguntas.js" charset="utf-8"></script>
+</body>
+</html>

@@ -6,7 +6,7 @@ const AYUDA = {
   "grupo": "Elige un grupo para ver los profesores y materias evaluados, el número de alumnos y los promedios.",
   "profesor": "Elige un profesor. Opcionalmente filtra por materia y por grupo.",
   "grupo-profesor": "Elige un grupo y un profesor. Opcionalmente filtra por una de las materias asignadas al profesor.",
-  "general-grupo": "Resumen de todos los profesores y materias evaluados por el grupo, con el promedio de cada una de las 12 preguntas."
+  "general-grupo": "Resumen de todos los profesores y materias evaluados por el grupo, con el promedio de cada pregunta."
 };
 const TITULO = {
   "grupo": "Reporte por grupo",
@@ -47,7 +47,6 @@ function fila(tbody, valores) {
   const admin = await exigirAdmin();
   if (!admin) return;
   $("quien").textContent = "👤 " + admin.nombre;
-  construirLeyenda();
   const [g, p] = await Promise.all([api("GET", "/api/admin/grupos"), api("GET", "/api/admin/profesores")]);
   if (!g.ok || !p.ok) { $("e-reporte").textContent = (g.ok ? p : g).error; return; }
   llenarSelect($("f-grupo"), g.datos, g.datos.length ? "Selecciona un grupo" : "No hay grupos registrados",
@@ -58,12 +57,14 @@ function fila(tbody, valores) {
   cambiarTipo("grupo");
 })();
 
-function construirLeyenda() {
+// La leyenda sale de las preguntas vigentes que entrega el reporte (el CRUD de preguntas las puede cambiar)
+function construirLeyenda(preguntas) {
   const ol = $("leyenda");
-  CONFIG.preguntas.forEach((t, i) => {
+  ol.innerHTML = "";
+  preguntas.forEach((p, i) => {
     const li = document.createElement("li");
     li.innerHTML = `<b>${i + 1}</b> <span></span>`;
-    li.querySelector("span").textContent = t;
+    li.querySelector("span").textContent = p.texto;
     ol.appendChild(li);
   });
 }
@@ -205,6 +206,7 @@ function pintar(d) {
   $("r-respuestas").textContent = d.resumen.respuestas;
   $("r-general").textContent = fmt(d.resumen.promedio);
 
+  construirLeyenda(d.preguntas);
   pintarGrafica(d);
   pintarPM(d);
   pintarResumenes(d);
@@ -230,7 +232,7 @@ function pintarPM(d) {
   const mostrarGrupo = !d.filtros.grupo;
   $("tituloPM").textContent = conPreguntas ? "Profesores y materias evaluados – promedio por pregunta" : "Profesores y materias evaluados";
   let h = "<tr>" + (mostrarGrupo ? "<th>Grupo</th>" : "") + "<th>Profesor</th><th>Materia</th><th>Alumnos</th><th>Promedio</th>";
-  if (conPreguntas) for (let i = 1; i <= CONFIG.totalPreguntas; i++) h += `<th>P${i}</th>`;
+  if (conPreguntas) for (let i = 1; i <= d.totalPreguntas; i++) h += `<th>P${i}</th>`;
   $("tablaPM").tHead.innerHTML = h + "</tr>";
   const tb = $("tablaPM").tBodies[0]; tb.innerHTML = "";
   d.porProfesorMateria.forEach(x => {
@@ -256,12 +258,12 @@ function pintarResumenes(d) {
   d.porMateria.forEach(x => fila(tm, [x.nombre, x.evaluaciones, el("b", fmt(x.promedio))]).children[0].classList.add("izq"));
 }
 
-// Tabla por alumno: misma estructura que la original (P1–P12, promedio por alumno, comentarios)
+// Tabla por alumno: misma estructura que la original (P1–Pn, promedio por alumno, comentarios)
 function pintarDetalle(d) {
   const F = d.filtros;
   const cGrupo = !F.grupo, cProf = !F.profesor && d.porProfesor.length > 1, cMat = !F.materia && d.porMateria.length > 1;
   let h = "<tr><th>Alum</th><th>Fecha</th>" + (cGrupo ? "<th>Grupo</th>" : "") + (cProf ? "<th>Profesor</th>" : "") + (cMat ? "<th>Materia</th>" : "");
-  for (let i = 1; i <= CONFIG.totalPreguntas; i++) h += `<th>P${i}</th>`;
+  for (let i = 1; i <= d.totalPreguntas; i++) h += `<th>P${i}</th>`;
   h += "<th>Prom. x alumno</th><th>Comentarios</th><th></th></tr>";
   $("tabla").tHead.innerHTML = h;
 
@@ -269,13 +271,15 @@ function pintarDetalle(d) {
   const extra = (cGrupo ? 1 : 0) + (cProf ? 1 : 0) + (cMat ? 1 : 0);
   d.detalle.forEach((a, idx) => {
     const tr = document.createElement("tr");
-    const prom = media(a.respuestas);
+    // Una pregunta agregada después de esta evaluación no tiene respuesta (null): no cuenta en el promedio del alumno
+    const validas = a.respuestas.filter(r => r !== null);
+    const prom = validas.length ? media(validas) : null;
     const celdas = [idx + 1, new Date(a.fecha).toLocaleDateString("es-MX")];
     if (cGrupo) celdas.push(a.grupo);
     if (cProf) celdas.push(a.profesor);
     if (cMat) celdas.push(a.materia);
-    a.respuestas.forEach(r => celdas.push(r));
-    celdas.push(el("b", f1(prom)));
+    a.respuestas.forEach(r => celdas.push(r === null ? "–" : r));
+    celdas.push(el("b", fmt(prom)));
     const com = el("span", a.comentario || ""); celdas.push(com);
     const del = el("button", "✕", "del");
     del.type = "button"; del.setAttribute("aria-label", `Eliminar alumno ${idx + 1}`);
@@ -299,7 +303,7 @@ function pintarDetalle(d) {
 }
 
 async function eliminar(id, numero) {
-  if (!confirm(`¿Eliminar definitivamente la evaluación del alumno ${numero}? Se borrarán también sus 12 respuestas y los promedios se recalcularán.`)) return;
+  if (!confirm(`¿Eliminar definitivamente la evaluación del alumno ${numero}? Se borrarán también sus respuestas y los promedios se recalcularán.`)) return;
   const r = await api("DELETE", `/api/admin/evaluaciones/${id}`);
   if (r.status === 401) { window.location.href = "admin.html"; return; }
   if (!r.ok) { $("e-reporte").textContent = r.error; return; }

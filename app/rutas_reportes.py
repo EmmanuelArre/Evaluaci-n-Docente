@@ -15,7 +15,6 @@ from .errores import ErrorHttp
 bp = Blueprint("reportes", __name__, url_prefix="/api/admin/reportes")
 
 LIMITE_DETALLE = 1000
-N = validar.TOTAL_PREGUNTAS
 
 # Cada tipo de reporte define qué filtros son obligatorios
 TIPOS = {
@@ -88,6 +87,12 @@ def reporte(tipo):
             par.append(f[campo])
     WHERE = ("WHERE " + " AND ".join(cond)) if cond else ""
 
+    # ---- 0) Preguntas vigentes: su número ya no es fijo (las administra el CRUD de preguntas). Las columnas P1…Pn
+    #         de los reportes son POSICIONES en este orden, aunque los números internos tengan huecos. ----
+    preguntas = db.filas("SELECT num_pregunta AS num, texto FROM preguntas ORDER BY num_pregunta")
+    pos = {p["num"]: i for i, p in enumerate(preguntas)}
+    N = len(preguntas)
+
     # ---- 1) Resumen: evaluaciones, respuestas y promedio de todas las respuestas ----
     r1 = db.una(
         f"""SELECT COUNT(DISTINCT e.encuesta_id) AS encuestas, COUNT(DISTINCT e.id) AS evaluaciones, COUNT(*) AS respuestas,
@@ -96,7 +101,7 @@ def reporte(tipo):
     resumen = {"encuestas": r1["encuestas"], "evaluaciones": r1["evaluaciones"], "respuestas": r1["respuestas"],
                "promedio": _num(r1["promedio"])}
 
-    base = {"tipo": tipo, "filtros": filtros, "resumen": resumen, "totalPreguntas": N,
+    base = {"tipo": tipo, "filtros": filtros, "resumen": resumen, "totalPreguntas": N, "preguntas": preguntas,
             "porPregunta": [], "porProfesorMateria": [], "porProfesor": [], "porMateria": [],
             "detalle": [], "detalleTruncado": False, "vacio": resumen["evaluaciones"] == 0}
     if base["vacio"]:
@@ -107,7 +112,7 @@ def reporte(tipo):
         f"""SELECT r.num_pregunta, AVG(r.calificacion + 0e0) AS promedio
               FROM evaluaciones e JOIN respuestas r ON r.evaluacion_id = e.id {WHERE}
              GROUP BY r.num_pregunta ORDER BY r.num_pregunta""", par)}
-    base["porPregunta"] = [pp.get(i + 1) for i in range(N)]
+    base["porPregunta"] = [pp.get(p["num"]) for p in preguntas]
 
     # ---- 3) Por grupo + profesor + materia (con el promedio de cada pregunta) ----
     pm = db.filas(
@@ -133,7 +138,7 @@ def reporte(tipo):
             filas[k] = {"grupo_id": x["grupo_id"], "grupo": x["grupo"], "profesor_id": x["profesor_id"],
                         "profesor": x["profesor"], "materia_id": x["materia_id"], "materia": x["materia"],
                         "evaluaciones": t["evaluaciones"], "promedio": _num(t["promedio"]), "preguntas": [None] * N}
-        filas[k]["preguntas"][x["num_pregunta"] - 1] = _num(x["promedio"])
+        filas[k]["preguntas"][pos[x["num_pregunta"]]] = _num(x["promedio"])
     base["porProfesorMateria"] = list(filas.values())
 
     # ---- 4) Por profesor y 5) por materia ----
@@ -160,7 +165,7 @@ def reporte(tipo):
         for r in db.filas(
                 f"""SELECT evaluacion_id, num_pregunta, calificacion FROM respuestas
                      WHERE evaluacion_id IN ({db.marcadores(ids)}) ORDER BY evaluacion_id, num_pregunta""", ids):
-            por_eval.setdefault(r["evaluacion_id"], [None] * N)[r["num_pregunta"] - 1] = r["calificacion"]
+            por_eval.setdefault(r["evaluacion_id"], [None] * N)[pos[r["num_pregunta"]]] = r["calificacion"]
         base["detalle"] = [{"id": e["id"], "encuesta": e["encuesta_id"], "fecha": e["creado_en"], "grupo": e["grupo"], "profesor": e["profesor"],
                             "materia": e["materia"], "comentario": e["comentario"], "respuestas": por_eval.get(e["id"], [])}
                            for e in ev]

@@ -69,7 +69,7 @@ async function ejecutar(metodo, url, cuerpo, mensajeOk, recargar) {
 function mostrarLogin(mensaje) {
   $("vistaPanel").hidden = true;
   $("vistaLogin").hidden = false;
-  ["navPanel", "navReportes", "btnSalir"].forEach(i => $(i).hidden = true);
+  ["navPanel", "navPreguntas", "navReportes", "btnSalir"].forEach(i => $(i).hidden = true);
   $("quien").textContent = "";
   $("e-login").textContent = mensaje || "";
   $("password").value = "";
@@ -78,7 +78,7 @@ function mostrarLogin(mensaje) {
 function mostrarPanel(admin) {
   $("vistaLogin").hidden = true;
   $("vistaPanel").hidden = false;
-  ["navPanel", "navReportes", "btnSalir"].forEach(i => $(i).hidden = false);
+  ["navPanel", "navPreguntas", "navReportes", "btnSalir"].forEach(i => $(i).hidden = false);
   $("quien").textContent = "👤 " + admin.nombre;
   cargarGrupos(); recargarCatalogos();
 }

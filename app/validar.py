@@ -211,8 +211,8 @@ def booleano(v, defecto=True):
     return None
 
 
-def _evaluacion(item):
-    """Valida UNA evaluación (un profesor-materia) dentro de la encuesta. Devuelve (datos | None, {campo: mensaje})."""
+def _evaluacion(item, total=TOTAL_PREGUNTAS):
+    """Valida UNA evaluación (un profesor-materia) dentro de la encuesta. `total` = preguntas que tiene la encuesta ahora. Devuelve (datos | None, {campo: mensaje})."""
     errores = {}
     if not isinstance(item, dict):
         return None, {"general": "Evaluación no válida."}
@@ -223,8 +223,8 @@ def _evaluacion(item):
 
     respuestas = None
     r = item.get("respuestas")
-    if not isinstance(r, list) or len(r) != TOTAL_PREGUNTAS:
-        errores["respuestas"] = f"Se requieren las {TOTAL_PREGUNTAS} respuestas."
+    if not isinstance(r, list) or len(r) != total:
+        errores["respuestas"] = f"Se requieren las {total} respuestas. Si el cuestionario cambió, recarga la página."
     else:
         malas = [i + 1 for i, v in enumerate(r)
                  if not (isinstance(v, int) and not isinstance(v, bool) and MIN_CALIF <= v <= MAX_CALIF)]
@@ -248,8 +248,8 @@ def _evaluacion(item):
     return {"profesor_id": profesor_id, "materia_id": materia_id, "respuestas": respuestas, "comentario": comentario}, None
 
 
-def encuesta(body):
-    """Valida el cuerpo de una ENCUESTA completa: {grupo_id, evaluaciones: [{profesor_id, materia_id, respuestas[12], comentario?}]}.
+def encuesta(body, total=TOTAL_PREGUNTAS):
+    """Valida el cuerpo de una ENCUESTA completa: {grupo_id, evaluaciones: [{profesor_id, materia_id, respuestas[total], comentario?}]}.
     Devuelve (datos, None) o (None, {campo: mensaje}). Los errores de una evaluación llevan la llave
     "r_<profesor_id>_<materia_id>" (calificaciones) o "c_<profesor_id>_<materia_id>" (comentario).
     La comprobación contra la base (existencia, asignación, límite) la hace rutas_publico dentro de la transacción."""
@@ -269,7 +269,7 @@ def encuesta(body):
     else:
         vistos = set()
         for it in items:
-            datos, e = _evaluacion(it)
+            datos, e = _evaluacion(it, total)
             if e and "general" in e:
                 errores["evaluaciones"] = e["general"]
                 continue

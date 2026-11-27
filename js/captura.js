@@ -135,17 +135,17 @@ function crearSeccion(a, num, preguntas) {
   encab.className = "encab-preg";
   encab.innerHTML = "<span>No.</span><span>Pregunta</span><span>Calificación</span>";
   sec.appendChild(encab);
-  preguntas.forEach(p => {
+  preguntas.forEach((p, pos) => {
     const fila = document.createElement("div");
     fila.className = "preg";
     fila.id = `fila_${clave}_${p.num}`;
-    const n = document.createElement("div"); n.className = "num"; n.textContent = p.num;
+    const n = document.createElement("div"); n.className = "num"; n.textContent = pos + 1;   // posición: el número interno puede tener huecos
     const t = document.createElement("div"); t.className = "txt"; t.textContent = p.texto;
     // Calificación con botones 5 a 10, como en la versión anterior; ninguno viene marcado
     const ops = document.createElement("div");
     ops.className = "opciones";
     ops.setAttribute("role", "radiogroup");
-    ops.setAttribute("aria-label", `Pregunta ${p.num} de ${a.profesor}, ${a.materia}`);
+    ops.setAttribute("aria-label", `Pregunta ${pos + 1} de ${a.profesor}, ${a.materia}`);
     for (let v = CONFIG.minCalif; v <= CONFIG.maxCalif; v++) {
       const lab = document.createElement("label"); lab.className = "op";
       const inp = document.createElement("input");
@@ -181,13 +181,13 @@ function reunirEvaluaciones() {
   cuestionarioActual.asignaciones.forEach(a => {
     const clave = `${a.profesor_id}_${a.materia_id}`;
     const resp = [], faltantes = [];
-    cuestionarioActual.preguntas.forEach(p => {
+    cuestionarioActual.preguntas.forEach((p, pos) => {
       const marcado = document.querySelector(`input[name="r_${clave}_${p.num}"]:checked`);
       const sel = marcado || document.querySelector(`input[name="r_${clave}_${p.num}"]`);
       const v = marcado ? Number(marcado.value) : NaN;
       const ok = Number.isInteger(v) && v >= CONFIG.minCalif && v <= CONFIG.maxCalif;
       $(`fila_${clave}_${p.num}`).classList.toggle("invalido", !ok);
-      if (ok) resp.push(v); else { faltantes.push(p.num); if (!primeraFalta) primeraFalta = sel; }
+      if (ok) resp.push(v); else { faltantes.push(pos + 1); if (!primeraFalta) primeraFalta = sel; }
     });
     const com = $(`c_${clave}`).value.trim();
     const comOk = com.length <= CONFIG.maxComentario;

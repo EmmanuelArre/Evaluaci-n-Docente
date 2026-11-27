@@ -113,8 +113,7 @@ CREATE TABLE IF NOT EXISTS asignaciones (
 CREATE TABLE IF NOT EXISTS preguntas (
   num_pregunta TINYINT UNSIGNED NOT NULL,
   texto        VARCHAR(255) NOT NULL,
-  PRIMARY KEY (num_pregunta),
-  CONSTRAINT ck_preguntas_num CHECK (num_pregunta BETWEEN 1 AND 12)
+  PRIMARY KEY (num_pregunta)
 ) ENGINE=InnoDB;
 
 -- ---------------------------------------------------------------------

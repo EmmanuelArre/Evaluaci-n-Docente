@@ -122,7 +122,9 @@ def guardar_encuesta():
         raise ErrorHttp(429, "Demasiados envíos desde esta red. Intenta de nuevo en unos minutos.")
     lim.registrar(request.remote_addr)
 
-    datos, errores = validar.encuesta(request.get_json(silent=True))
+    # Las preguntas las administra el CRUD de preguntas: el total ya no es fijo, se lee de la base
+    nums = [f["num_pregunta"] for f in db.filas("SELECT num_pregunta FROM preguntas ORDER BY num_pregunta")]
+    datos, errores = validar.encuesta(request.get_json(silent=True), len(nums))
     if errores:
         raise ErrorHttp(400, "Revisa los datos capturados.", errores)
     gid = datos["grupo_id"]
@@ -149,6 +151,10 @@ def guardar_encuesta():
             motivo = _bloqueo(g["num_alumnos"], n)
             if motivo:
                 raise ErrorHttp(409, motivo)
+            # 3b) El cuestionario no debe haber cambiado (alta o baja de preguntas) mientras el alumno contestaba
+            cur.execute("SELECT num_pregunta FROM preguntas ORDER BY num_pregunta")
+            if [f["num_pregunta"] for f in cur.fetchall()] != nums:
+                raise ErrorHttp(409, "El cuestionario cambió mientras contestabas. Recarga la página y vuelve a contestar.")
             # 4) Las evaluaciones recibidas deben ser EXACTAMENTE las asignaciones activas del grupo
             cur.execute(
                 """SELECT a.profesor_id, a.materia_id
@@ -176,7 +182,7 @@ def guardar_encuesta():
                             "VALUES (%s, %s, %s, %s, %s)",
                             (encuesta_id, gid, e["profesor_id"], e["materia_id"], e["comentario"]))
                 eid = cur.lastrowid
-                filas_resp += [(eid, i + 1, cal) for i, cal in enumerate(e["respuestas"])]
+                filas_resp += [(eid, nums[i], cal) for i, cal in enumerate(e["respuestas"])]
             cur.executemany("INSERT INTO respuestas (evaluacion_id, num_pregunta, calificacion) VALUES (%s, %s, %s)", filas_resp)
         conn.commit()
     except BaseException as e:

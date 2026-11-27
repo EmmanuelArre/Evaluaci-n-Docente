@@ -79,8 +79,8 @@ def crear_app(cfg=None):
         return resp
 
     # ---------- API ----------
-    from . import rutas_admin, rutas_auth, rutas_publico, rutas_reportes
-    for modulo in (rutas_publico, rutas_auth, rutas_admin, rutas_reportes):
+    from . import rutas_admin, rutas_auth, rutas_preguntas, rutas_publico, rutas_reportes
+    for modulo in (rutas_publico, rutas_auth, rutas_admin, rutas_preguntas, rutas_reportes):
         app.register_blueprint(modulo.bp)
 
     @app.get("/api/salud")
@@ -104,6 +104,13 @@ def crear_app(cfg=None):
         if not sesion.cargar():
             return redirect("/admin.html")
         return send_from_directory(RAIZ, "reporte.html")
+
+    @app.get("/preguntas.html")
+    def preguntas_html():
+        # Solo con sesión (la protección real está en la API)
+        if not sesion.cargar():
+            return redirect("/admin.html")
+        return send_from_directory(RAIZ, "preguntas.html")
 
     @app.get("/<any(css,js,img):carpeta>/<path:archivo>")
     def estaticos(carpeta, archivo):
